@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>محرر الجداول الذكي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri&family=Cairo:wght@400;700&family=Tajawal&family=Changa&family=Reem+Kufi&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> 
+
+  <style>
+    /* Global styles */
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Cairo", sans-serif;
+      background: #f2f9ff;
+      margin: 0;
+      padding-top: 60px; /* Space for fixed top bar */
+      padding-bottom: 70px; /* Space for fixed bottom nav */
+      overflow-x: hidden; /* Prevent horizontal scroll when sidebar is out */
+      font-size: 16px; /* Base font size, will be adjusted by JS */
+      color: #333;
+    }
+    .hidden {
+        display: none !important; /* هذا الكلاس يستخدم لإخفاء العناصر برمجياً */
+    }
+
+    /* Top Bar */
+    .top-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        background: linear-gradient(135deg, #1976d2, #2196f3); /* Blue gradient */
+        color: white;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        z-index: 1000;
+        justify-content: space-between; /* To push hamburger to left and title to right */
+    }
+    .top-bar .app-title {
+        font-size: 1.5em; /* Relative to body font size */
+        font-weight: bold;
+        flex-grow: 1; /* Allow title to take available space */
+        text-align: center; /* Center the title */
+    }
+    .top-bar .hamburger-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.8em; /* Relative to body font size */
+        cursor: pointer;
+        padding: 5px;
+        transition: transform 0.2s ease;
+        order: -1; /* Place hamburger on the right (start) for RTL */
+    }
+    .top-bar .hamburger-btn:hover {
+        transform: scale(1.1);
+    }
+
+
+    /* App Header (now specifically for the content area, not fixed top) */
+    .app-header {
+      background: #2196f3; /* This will be covered by the top-bar if on home screen */
+      color: white;
+      padding: 30px 20px;
+      text-align: center;
+      /* Remove fixed positioning as top-bar handles it */
+    }
+
+
+    /* Main Content Area */
+    .main-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin-top: 30px;
+      margin-bottom: 20px;
+    }
+
+    /* Card Styling (Editor, Intro, Login, Settings, Notifications) */
+    .editor-card, .intro-slide, .login-card, .settings-card, .notifications-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 90%; /* Adjusted for better mobile fit */
+      text-align: center;
+      margin-bottom: 20px; /* Space between cards */
+    }
+
+    /* Main Button Style (Used for 'Start', 'Next' in Intro and 'Create New Table') */
+    .btn-main {
+      background: linear-gradient(135deg, #1976d2, #2196f3); /* Blue gradient */
+      color: white;
+      padding: 12px 24px;
+      font-size: 1em; /* Relative to body font size */
+      border: none;
+      border-radius: 30px; /* More rounded */
+      cursor: pointer;
+      transition: all 0.3s ease; /* Smooth transition for hover effects */
+      margin: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    }
+    .btn-main:hover {
+      background: linear-gradient(135deg, #0d47a1, #1976d2); /* Darker gradient on hover */
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+      transform: translateY(-2px); /* Slight lift effect */
+    }
+
+    /* Input and Select Fields */
+    input, select {
+      padding: 10px;
+      width: 80%;
+      margin: 10px 0;
+      font-size: 1em; /* Relative to body font size */
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    /* Intro Container */
+    .intro-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 130px); /* Adjust for top/bottom bars */
+      padding: 20px;
+    }
+
+    /* Cards Container for Templates (GRID layout for side-by-side) */
+    .cards-container {
+      display: grid;
+      /* Default for larger screens: minmax(160px, 1fr) for flexibility, can show 3 or 4 */
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 20px; /* Increased gap */
+      padding: 20px;
+      justify-items: center; /* Center items within their grid cells */
+      max-width: 900px; /* Limit width to keep cards from stretching too much */
+      margin: 0 auto; /* Center the grid container */
+    }
+    
+    /* Media Query for smaller screens (phones) - to show 2 cards per row */
+    @media (max-width: 600px) { /* Adjust max-width as needed for phone screens */
+      .cards-container {
+        /* Set explicit columns to 2 on smaller screens */
+        grid-template-columns: repeat(2, 1fr); 
+        max-width: 380px; /* Adjust max-width to keep two columns compact and centered */
+        padding: 10px; /* Slightly less padding on smaller screens */
+      }
+      .card {
+        width: 100%; /* Ensure cards take full width within their grid cell */
+        max-width: 170px; /* Limit individual card width to prevent stretching */
+        height: 160px; /* Adjust height for a more compact look on phones */
+        padding: 15px; /* Slightly less padding inside card */
+      }
+      .card img {
+        width: 50px; /* Slightly smaller icons on phone */
+        height: 50px;
+      }
+      .card div {
+        font-size: 1em; /* Slightly smaller text */
+      }
+    }
+
+    .card {
+      background: linear-gradient(145deg, #e6f0ff, #ffffff);
+      border: 1px solid #ccc;
+      border-radius: 15px;
+      padding: 20px;
+      width: 100%;
+      max-width: 200px; /* Increased max-width for better appearance */
+      height: 180px;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
+    .card img { width: 60px; height: 60px; margin-bottom: 10px; } /* Larger icons */
+    .card div {
+        font-weight: bold;
+        color: #1976d2;
+        font-size: 1.1em;
+    }
+
+
+    /* Table Styling */
+    #table-container { /* Added container for scrollability */
+        overflow-x: auto; /* Enable horizontal scrolling for the table */
+        width: 95%;
+        margin: 20px auto;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        background: white; /* Ensure container background is white */
+        -webkit-overflow-scrolling: touch; /* Smoother scrolling on iOS */
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%; /* Make table take full width of its container */
+      min-width: 600px; /* Ensure a minimum width for better usability on small screens */
+      background: white;
+      border-radius: 12px; /* Apply border-radius to the table itself */
+      overflow: hidden; /* Important for border-radius to show */
+      /* Add this for printing background colors */
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px; /* Adjusted padding for mobile */
+      text-align: center;
+      /* Add this for printing background colors on cells too */
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+      font-size: 0.9em; /* Adjusted font size for mobile */
+    }
+    th {
+      background: #1976d2;
+      color: white;
+      /* Ensure header background prints */
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    td[contenteditable], th[contenteditable] { outline: none; }
+
+    /* Specific Styles for "قالب الواجبات" */
+    .tasks-table th {
+        background-color: #E0F2F7; /* Light blue header */
+        color: #2196F3; /* Darker blue text */
+        font-family: 'Tajawal', sans-serif; /* Specific font for headers */
+        /* Ensure header background prints */
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    .tasks-table tr:nth-child(even) { /* Even rows */
+        background-color: #F8FCFF;
+    }
+    .tasks-table tr:nth-child(odd) { /* Odd rows */
+        background-color: #FFFFFF;
+    }
+
+    /* Print Specific Styles */
+    .no-print { display: none !important; }
+    @media print {
+      .top-bar, .bottom-nav, th:last-child, td:last-child, .font-selector, #sidebar, #overlay, #settings-page, #notifications-page, #changeFontColorBtn, #fontColorPicker { /* Hide on print */
+        display: none !important;
+      }
+      body { padding: 0 !important; } /* Remove padding from body when printing */
+
+      .app-footer-note {
+          display: block !important; /* اجعلها تظهر عند الطباعة */
+          font-size: 10px; /* حجم خط أصغر للطباعة */
+          margin-top: 30px; /* مسافة أكبر من الجدول */
+          page-break-before: auto; /* تضمن عدم كسر الصفحة بشكل غير مرغوب فيه */
+      }
+    }
+
+    /* Font Selector */
+    .font-selector {
+      margin: 10px auto;
+      text-align: center;
+      display: flex; /* Make it a flex container */
+      align-items: center; /* Vertically align items */
+      justify-content: center; /* Center horizontally */
+      gap: 10px; /* Space between items */
+    }
+    .font-selector label {
+        white-space: nowrap; /* Prevent label from wrapping */
+    }
+    .font-selector select {
+        width: auto; /* Allow select to size to content */
+        max-width: 150px;
+    }
+    .font-selector #fontColorPicker {
+        width: 40px; /* Size for color picker */
+        height: 40px;
+        padding: 0;
+        border: none;
+        cursor: pointer;
+    }
+
+
+    /* Bottom Navigation Bar (Now includes all actions) */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(to right, #e3f2fd, #ffffff);
+      border-top: 1px solid #ccc;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start; /* Align items to top to control spacing better */
+      padding: 5px 0; /* Reduced padding */
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+      z-index: 1000;
+      height: 65px; /* Fixed height for the nav bar */
+      overflow-x: auto; /* Allow horizontal scroll if many items */
+      white-space: nowrap; /* Prevent wrapping */
+    }
+    .bottom-nav button {
+      background: none;
+      border: none;
+      font-size: 0.7em; /* Smaller font for text below icon */
+      color: #1976d2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      padding: 5px 8px; /* Padding for each button */
+      transition: color 0.3s ease, transform 0.3s ease;
+      flex-shrink: 0; /* Prevent items from shrinking */
+    }
+    .bottom-nav button:hover {
+        color: #0d47a1; /* Darker blue on hover */
+        transform: translateY(-2px); /* Slight lift */
+    }
+    .bottom-nav .material-icons {
+      font-size: 1.75em; /* Larger icon size */
+      margin-bottom: 2px;
+    }
+    /* Specific styles for action icons */
+    .bottom-nav button.action-btn .material-icons {
+        color: #4CAF50; /* Green for action icons */
+    }
+    .bottom-nav button.action-btn:hover .material-icons {
+        color: #388E3C; /* Darker green on hover */
+    }
+    .bottom-nav button#downloadPDFBtn .material-icons,
+    .bottom-nav button#printBtn .material-icons,
+    .bottom-nav button#reloadBtn .material-icons,
+    .bottom-nav button#downloadImageBtn .material-icons { /* Added new button to style */
+        color: #F44336; /* Red for download/print/reload/image to signify different action type */
+    }
+    .bottom-nav button#downloadPDFBtn:hover .material-icons,
+    .bottom-nav button#printBtn:hover .material-icons,
+    .bottom-nav button#reloadBtn:hover .material-icons,
+    .bottom-nav button#downloadImageBtn:hover .material-icons { /* Added new button to style */
+        color: #D32F2F;
+    }
+    /* New: Colors button style */
+    .bottom-nav button#changeColorsBtn .material-icons {
+        color: #9C27B0; /* Purple for colors */
+    }
+    .bottom-nav button#changeColorsBtn:hover .material-icons {
+        color: #7B1FA2; /* Darker purple on hover */
+    }
+    /* New: Preview button style */
+    .bottom-nav button#previewBtn .material-icons {
+        color: #FFC107; /* Amber for preview */
+    }
+    .bottom-nav button#previewBtn:hover .material-icons {
+        color: #FFA000; /* Darker amber on hover */
+    }
+
+
+    /* Projects Page - NEW STYLES */
+    #projects-page {
+      padding: 20px;
+      text-align: center;
+    }
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 2-3 columns, responsive */
+      gap: 25px;
+      padding: 20px;
+      max-width: 900px; /* Aligned with templates container */
+      margin: 20px auto; /* Center the grid */
+      justify-items: center;
+    }
+
+    .project-card {
+      background: linear-gradient(145deg, #e6f0ff, #ffffff);
+      border: 1px solid #d0e0f0;
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between; /* Distribute content vertically */
+      width: 100%; /* Take full width of grid cell */
+      min-height: 200px; /* Minimum height for consistent look */
+    }
+
+    .project-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .project-card .material-icons {
+      font-size: 3em; /* Large icon for project type */
+      color: #2196f3;
+      margin-bottom: 10px;
+    }
+
+    .project-card strong {
+      font-size: 1.3em;
+      color: #1976d2;
+      margin-bottom: 15px;
+      display: block; /* Ensures it takes its own line */
+      width: 100%;
+      white-space: nowrap; /* Prevents wrapping */
+      overflow: hidden; /* Hides overflow */
+      text-overflow: ellipsis; /* Adds ellipsis for long names */
+      cursor: pointer; /* Indicates it's editable */
+    }
+
+    .project-card .project-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px; /* Space between buttons */
+      margin-top: 15px;
+      width: 100%;
+    }
+
+    .project-card button {
+      background: #2196f3; /* Blue for action buttons */
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .project-card button:hover {
+      background: #1976d2;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .project-card .delete-btn {
+      background: #f44336; /* Red for delete button */
+    }
+    .project-card .delete-btn:hover {
+      background: #d32f2f;
+    }
+    
+    /* Responsive adjustment for projects grid */
+    @media (max-width: 768px) {
+        .projects-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* More compact on tablets */
+            gap: 15px;
+        }
+        .project-card {
+            min-height: 180px;
+            padding: 15px;
+        }
+        .project-card .material-icons {
+            font-size: 2.5em;
+        }
+        .project-card strong {
+            font-size: 1.1em;
+        }
+        .project-card button {
+            padding: 8px 15px;
+            font-size: 0.8em;
+        }
+    }
+    @media (max-width: 480px) { /* Even smaller for very small phones */
+        .projects-grid {
+            grid-template-columns: 1fr; /* Single column on very small phones */
+            max-width: 300px; /* Limit width */
+        }
+        .project-card {
+            max-width: 300px;
+        }
+    }
+
+
+    /* Login Page Specific Styles */
+    #auth-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh; /* Make it take full viewport height */
+      padding: 20px;
+      position: fixed; /* Make it fixed to cover whole screen */
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #f2f9ff; /* Match body background */
+      z-index: 1001; /* Above everything else */
+    }
+    .login-card {
+      max-width: 400px;
+      width: 90%;
+    }
+    .login-card h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .login-card input[type="text"] {
+      width: calc(100% - 40px); /* Adjust width for padding */
+      margin-bottom: 15px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1em; /* Relative to body font size */
+      text-align: right; /* Align text to right for RTL */
+    }
+    .login-card .login-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px; /* Space between login/register buttons */
+      margin-top: 20px;
+    }
+    .login-card .login-buttons button {
+      flex: 1; /* Make buttons take equal width */
+      max-width: 150px; /* Limit max width */
+    }
+    #auth-message {
+        margin-top: 10px;
+        font-weight: bold;
+        color: #f44336; /* Default to error color */
+    }
+    #auth-message.success {
+        color: #4CAF50; /* Green for success */
+    }
+
+    /* Sidebar Styles */
+    #sidebar {
+      position: fixed;
+      top: 0;
+      right: 0; /* For RTL positioning */
+      width: 250px; /* Width of the sidebar */
+      height: 100%;
+      background: #ffffff;
+      box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+      transform: translateX(100%); /* Initially hidden off-screen to the right */
+      transition: transform 0.3s ease-in-out;
+      z-index: 1002; /* Above app content but below auth container */
+      display: flex;
+      flex-direction: column;
+      padding-top: 60px; /* Space for the top bar */
+    }
+    #sidebar.active {
+      transform: translateX(0); /* Slide in */
+    }
+    .sidebar-header {
+      position: relative; /* لتمكين وضع زر الإغلاق بالنسبة له */
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      background: linear-gradient(135deg, #e3f2fd, #ffffff);
+    }
+    .close-sidebar-btn {
+        position: absolute;
+        top: 10px;
+        left: 10px; /* تحديد الموضع في الزاوية العلوية اليسرى لـ RTL */
+        background: none;
+        border: none;
+        color: #333;
+        font-size: 1.8em;
+        cursor: pointer;
+        padding: 5px;
+        transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .close-sidebar-btn:hover {
+        transform: scale(1.1);
+        color: #f44336; /* لون أحمر عند التمرير */
+    }
+
+    #sidebar-welcome-msg {
+      font-size: 1.3em; /* Relative to body font size */
+      font-weight: bold;
+      color: #333;
+      margin: 0;
+    }
+    .sidebar-nav {
+      padding: 10px;
+      flex-grow: 1; /* Allows it to take available vertical space */
+    }
+    .sidebar-btn {
+      width: 100%;
+      padding: 12px 20px;
+      text-align: right; /* Align text to the right for RTL */
+      background: none;
+      border: none;
+      font-size: 1.05em; /* Relative to body font size */
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      border-radius: 8px;
+      transition: background 0.2s ease, color 0.2s ease;
+      margin-bottom: 5px;
+    }
+    .sidebar-btn .material-icons {
+      margin-left: 10px; /* Space between icon and text */
+      color: #2196f3;
+      font-size: 1.5em; /* Relative to button font size */
+    }
+    .sidebar-btn:hover {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    .sidebar-btn:hover .material-icons {
+        color: #0d47a1;
+    }
+    /* Specific logout button style in sidebar */
+    .sidebar-btn#sidebarLogoutBtn {
+        color: #f44336;
+    }
+    .sidebar-btn#sidebarLogoutBtn .material-icons {
+        color: #f44336;
+    }
+    .sidebar-btn#sidebarLogoutBtn:hover {
+        background: #ffebee;
+        color: #d32f2f;
+    }
+    .sidebar-btn#sidebarLogoutBtn:hover .material-icons {
+        color: #d32f2f;
+    }
+
+
+    /* Overlay */
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1001; /* Between main content and sidebar */
+      opacity: 0;
+      pointer-events: none; /* Allows clicks to pass through when hidden */
+      transition: opacity 0.3s ease-in-out;
+    }
+    #overlay.active {
+      opacity: 1;
+      pointer-events: auto; /* Blocks clicks when active */
+    }
+
+    /* Settings Page Specific Styles */
+    .settings-card h3 {
+        margin-top: 0;
+        color: #333;
+        font-size: 1.2em;
+        margin-bottom: 15px;
+    }
+    .settings-option {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+    .settings-option:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .settings-option label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #555;
+        font-size: 1em;
+    }
+    .settings-option button {
+        background: #e3f2fd;
+        color: #1976d2;
+        border: 1px solid #1976d2;
+        padding: 8px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+        margin: 0 5px;
+        font-size: 0.9em;
+    }
+    .settings-option button:hover {
+        background: #1976d2;
+        color: white;
+    }
+    .settings-option .language-buttons button.active {
+        background: #1976d2;
+        color: white;
+        border-color: #0d47a1;
+    }
+
+    /* Notifications Page Specific Styles - IMPROVED */
+    #notifications-list {
+        text-align: right; /* Align text to the right for RTL */
+        max-height: 400px; /* Make it scrollable if many notifications */
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        padding: 10px;
+        margin-top: 20px;
+        background-color: #fdfdfd;
+        box-shadow: inset 0 1px 5px rgba(0,0,0,0.05);
+    }
+    .notification-item {
+        display: flex; /* Use flexbox for icon and text alignment */
+        align-items: center;
+        padding: 12px 10px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.95em;
+        color: #333;
+        transition: background-color 0.2s ease;
+        border-radius: 8px; /* Slightly rounded for individual items */
+        margin-bottom: 5px; /* Space between items */
+    }
+    .notification-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    .notification-item:hover {
+        background-color: #eef7ff; /* Light blue on hover */
+    }
+    .notification-item.unread {
+        font-weight: bold;
+        background-color: #e6f0ff; /* Light blue for unread */
+        border-left: 5px solid #2196f3; /* Blue border to indicate unread */
+        padding-right: 5px; /* Adjust padding due to border */
+    }
+    .notification-item .material-icons {
+        font-size: 1.5em; /* Larger icon */
+        color: #2196f3; /* Blue icon */
+        margin-left: 10px; /* Space between icon and text */
+        flex-shrink: 0; /* Prevent icon from shrinking */
+    }
+    .notification-item.unread .material-icons {
+        color: #1976d2; /* Darker blue for unread icon */
+    }
+    .notification-item-content {
+        flex-grow: 1; /* Allow content to take available space */
+    }
+    .notification-item-timestamp {
+        font-size: 0.8em;
+        color: #888;
+        display: block; /* New line for timestamp */
+        margin-top: 3px;
+    }
+    #clearNotificationsBtn {
+        margin-top: 25px;
+        background: linear-gradient(135deg, #f44336, #d32f2f); /* Red gradient */
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    #clearNotificationsBtn:hover {
+        background: linear-gradient(135deg, #d32f2f, #f44336);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div id="top-bar" class="top-bar hidden">
+    <button id="toggleSidebarBtn" class="hamburger-btn material-icons">menu</button>
+    <span class="app-title" data-translate-key="appTitle">محرر الجداول الذكي</span>
+    <div></div>
+  </div>
+
+  <div id="sidebar" class="sidebar hidden">
+    <div class="sidebar-header">
+      <button id="closeSidebarBtn" class="close-sidebar-btn material-icons">close</button>
+      <p id="sidebar-welcome-msg" data-translate-key="welcomeMessage">مرحبًا بك 👋</p>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-btn" id="sidebarHomeBtn"><span class="material-icons">home</span> <span data-translate-key="home">الرئيسية</span></button>
+      <button class="sidebar-btn" id="sidebarProjectsBtn"><span class="material-icons">folder</span> <span data-translate-key="projects">المشاريع</span></button>
+      <button class="sidebar-btn" id="sidebarNotificationsBtn"><span class="material-icons">notifications</span> <span data-translate-key="notifications">الإشعارات</span></button>
+      <button class="sidebar-btn" id="sidebarSettingsBtn"><span class="material-icons">settings</span> <span data-translate-key="settings">الإعدادات</span></button>
+      <button class="sidebar-btn" id="sidebarLogoutBtn"><span class="material-icons">logout</span> <span data-translate-key="logout">خروج من الحساب</span></button>
+    </nav>
+  </div>
+
+  <div id="overlay" class="hidden"></div>
+
+  <div id="intro" class="intro-container hidden">
+    <div class="intro-slide" id="slide1">
+      <h2 data-translate-key="introWelcomeTitle">👋 مرحبًا بك</h2>
+      <p data-translate-key="introWelcomeText">مرحبًا بك في <strong>محرر الجداول الذكي</strong>، تطبيق يساعدك على إنشاء جداول بسهولة واحترافية.</p>
+      <button class="btn-main" onclick="nextSlide(2)" data-translate-key="nextBtn">التالي</button>
+    </div>
+    <div class="intro-slide hidden" id="slide2">
+      <h2 data-translate-key="introUsageTitle">📋 طريقة الاستخدام</h2>
+      <p data-translate-key="introUsageText">اختر عدد الصفوف والأعمدة، ثم اختر القالب المناسب وابدأ التعديل.</p>
+      <button class="btn-main" onclick="nextSlide(3)" data-translate-key="nextBtn">التالي</button>
+    </div>
+    <div class="intro-slide hidden" id="slide3">
+      <h2 data-translate-key="introTermsTitle">📌 شروط الاستخدام</h2>
+      <p data-translate-key="introTermsText">هذا التطبيق مجاني للاستخدام الشخصي، ولا يتحمل مسؤولية الاستخدام غير القانوني.</p>
+      <button class="btn-main" onclick="finishIntro()" data-translate-key="startNowBtn">ابدأ الآن</button>
+    </div>
+  </div>
+
+  <div id="app-content-wrapper">
+    <div id="app-content" class="hidden">
+      <div id="home">
+        <div class="app-header">
+          <h1 data-translate-key="homePageTitle">صفحة البدء</h1>
+          <p data-translate-key="homePageSubtitle">ابدأ في تصميم جداولك بسهولة واحترافية</p>
+        </div>
+        <div class="main-content">
+          <div class="editor-card">
+            <h2 data-translate-key="startNowSectionTitle">🚀 ابدأ الآن</h2>
+            <button class="btn-main" id="startBtn" data-translate-key="createNewTableBtn">➕ إنشاء جدول جديد</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="step1" class="hidden">
+        <div class="main-content">
+          <div class="editor-card">
+            <h2 data-translate-key="tableSettingsTitle">🛠️ إعدادات الجدول</h2>
+            <input type="number" id="cols" placeholder="عدد الأعمدة" max="10" min="1" data-translate-placeholder="numColsPlaceholder"/>
+            <input type="number" id="rows" placeholder="عدد الصفوف" max="20" min="1" data-translate-placeholder="numRowsPlaceholder"/>
+            <button class="btn-main" id="nextBtn" data-translate-key="nextBtn">التالي ➡️</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="step2" class="hidden">
+        <h2 style="text-align:center;" data-translate-key="chooseTemplateTitle">اختر قالبًا</h2>
+        <div class="cards-container" id="template-list"></div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div class="font-selector">
+          <label for="font" data-translate-key="changeFontLabel">تغيير الخط:</label>
+          <select id="font" onchange="changeFont(this.value)">
+            <option value="'Cairo', sans-serif">Cairo</option>
+            <option value="'Amiri', serif">Amiri</option>
+            <option value="'Tajawal', sans-serif">Tajawal</option>
+            <option value="'Changa', sans-serif">Changa</option>
+            <option value="'Reem Kufi', sans-serif">Reem Kufi</option>
+          </select>
+          <button id="changeFontColorBtn" class="action-btn" title="تغيير لون الخط"><span class="material-icons">format_color_text</span></button>
+          <input type="color" id="fontColorPicker" value="#333333" class="hidden">
+        </div>
+        <div id="table-container">
+          
+<div id="app-footer-note" class="app-footer-note no-print" data-translate-key="appFooterNote">
+              تم إنشاء هذا الجدول باستخدام محرر الجداول الذكي.
+          </div>
+        </div>
+      </div>
+
+      <div id="projects-page" class="hidden">
+        <h2 style="text-align:center; padding-top: 20px;" data-translate-key="savedProjectsTitle">📁 المشاريع المحفوظة</h2>
+        <div id="projects-list" class="projects-grid"></div>
+      </div>
+
+      <div id="settings-page" class="hidden">
+        <div class="main-content">
+            <div class="settings-card">
+                <h2 data-translate-key="settingsTitle">⚙️ الإعدادات</h2>
+
+                <div class="settings-option">
+                    <h3 data-translate-key="languageSettingsTitle">تغيير اللغة</h3>
+                    <div class="language-buttons">
+                        <button id="langArBtn" onclick="setLanguage('ar')" data-lang="ar">العربية</button>
+                        <button id="langEnBtn" onclick="setLanguage('en')" data-lang="en">English</button>
+                    </div>
+                </div>
+
+                <div class="settings-option">
+                    <h3 data-translate-key="fontSizeSettingsTitle">حجم الخط</h3>
+                    <button onclick="decreaseFontSize()">A-</button>
+                    <button onclick="increaseFontSize()">A+</button>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div id="notifications-page" class="hidden">
+        <div class="main-content">
+            <div class="notifications-card">
+                <h2 data-translate-key="notificationsPageTitle">🔔 الإشعارات</h2>
+                <div id="notifications-list">
+                    </div>
+                <button class="btn-main" id="clearNotificationsBtn" data-translate-key="clearNotificationsBtn">مسح الكل</button>
+            </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav hidden">
+        <button id="navHomeBtn"><span class="material-icons">home</span><span data-translate-key="home">الرئيسية</span></button>
+        <button id="addRowBtn" class="action-btn"><span class="material-icons">add_box</span> <span data-translate-key="addRow">إضافة صف</span></button>
+        <button id="deleteRowBtn" class="action-icons"><span class="material-icons">delete_forever</span> <span data-translate-key="deleteRow">حذف صف</span></button>
+        <button id="saveProjectBtn" class="action-btn"><span class="material-icons">save</span> <span data-translate-key="save">حفظ</span></button>
+        
+        <button id="downloadPDFBtn" class="action-btn"><span class="material-icons">picture_as_pdf</span> <span data-translate-key="downloadPDF">PDF</span></button>
+        <button id="downloadImageBtn" class="action-btn"><span class="material-icons">image</span> <span data-translate-key="saveAsImage">صورة</span></button> 
+        
+<button id="changeColorsBtn" class="action-btn"><span class="material-icons">palette</span> <span data-translate-key="changeColors">الألوان</span></button>
+        <button id="previewBtn" class="action-btn"><span class="material-icons">visibility</span> <span data-translate-key="preview">معاينة</span></button>
+        <button id="printBtn" class="action-btn"><span class="material-icons">print</span> <span data-translate-key="print">طباعة</span></button>
+        <button id="reloadBtn" class="action-btn"><span class="material-icons">refresh</span> <span data-translate-key="reload">رجوع</span></button>
+      </div>
+    </div>
+  </div>
+  <div id="auth-container">
+    <div class="login-card">
+      <h2 id="auth-title" data-translate-key="enterUsernameTitle">أدخل اسم المستخدم</h2>
+      <input type="text" id="usernameInput" placeholder="اسم المستخدم" data-translate-placeholder="usernamePlaceholder"/>
+      <p id="auth-message"></p>
+      <div class="login-buttons">
+        <button class="btn-main" id="authSubmitBtn" data-translate-key="loginBtn">دخول</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let userCols = 0, userRows = 0, tableRef = null, selectedRow = null;
+    let isAuthenticated = false;
+    let currentUsername = null; // لتخزين اسم المستخدم الحالي
+    let currentLanguage = localStorage.getItem('language') || 'ar'; // Default to Arabic
+    let currentFontSize = parseFloat(localStorage.getItem('fontSize')) || 16; // Default base font size
+    let notifications = []; // This will hold notifications from shared_notifications
+    let selectedCell = null; // New: To keep track of the currently selected cell for font color change
+
+    // Translation object
+    const translations = {
+        ar: {
+            appTitle: "محرر الجداول الذكي",
+            welcomeMessage: "مرحبًا {username} 👋",
+            home: "الرئيسية",
+            projects: "المشاريع",
+            notifications: "الإشعارات",
+            settings: "الإعدادات",
+            logout: "خروج من الحساب",
+            introWelcomeTitle: "👋 مرحبًا بك",
+            introWelcomeText: "مرحبًا بك في <strong>محرر الجداول الذكي</strong>، تطبيق يساعدك على إنشاء جداول بسهولة واحترافية.",
+            introUsageTitle: "📋 طريقة الاستخدام",
+            introUsageText: "اختر عدد الصفوف والأعمدة، ثم اختر القالب المناسب وابدأ التعديل.",
+            introTermsTitle: "📌 شروط الاستخدام",
+            introTermsText: "هذا التطبيق مجاني للاستخدام الشخصي، ولا يتحمل مسؤولية الاستخدام غير القانوني.",
+            nextBtn: "التالي",
+            startNowBtn: "ابدأ الآن",
+            homePageTitle: "صفحة البدء",
+            homePageSubtitle: "ابدأ في تصميم جداولك بسهولة واحترافية",
+            startNowSectionTitle: "🚀 ابدأ الآن",
+            createNewTableBtn: "➕ إنشاء جدول جديد",
+            tableSettingsTitle: "🛠️ إعدادات الجدول",
+            numColsPlaceholder: "عدد الأعمدة",
+            numRowsPlaceholder: "عدد الصفوف",
+            chooseTemplateTitle: "اختر قالبًا",
+            changeFontLabel: "تغيير الخط:",
+            savedProjectsTitle: "📁 المشاريع المحفوظة",
+            addRow: "إضافة صف",
+            deleteRow: "حذف صف",
+            save: "حفظ",
+            downloadPDF: "PDF",
+            saveAsImage: "صورة",
+            changeColors: "الألوان",
+            preview: "معاينة", // New translation key for preview button
+            print: "طباعة",
+            reload: "رجوع",
+            enterUsernameTitle: "أدخل اسم المستخدم",
+            usernamePlaceholder: "اسم المستخدم",
+            loginBtn: "دخول",
+            settingsTitle: "⚙️ الإعدادات",
+            languageSettingsTitle: "تغيير اللغة",
+            fontSizeSettingsTitle: "حجم الخط",
+            notificationsPageTitle: "🔔 الإشعارات",
+            clearNotificationsBtn: "مسح الكل",
+            noNotificationsMsg: "لا توجد إشعارات حالياً.",
+            alertEnterValidNumbers: "الرجاء إدخال أرقام صحيحة لعدد الأعمدة (1-10) والصفوف (1-20).",
+            alertProjectSaved: "تم حفظ المشروع بنجاح!",
+            alertNoProjects: "لا توجد مشاريع محفوظة.",
+            alertProjectNotFound: "المشروع غير موجود",
+            alertConfirmDeleteProject: "هل أنت متأكد من حذف هذا المشروع؟",
+            alertPleaseChooseRow: "يرجى اختيار صف أولاً",
+            alertPleaseEnterUsername: "الرجاء إدخال اسم المستخدم.",
+            alertLoginSuccess: "مرحبًا بك يا {username}!",
+            alertLogoutSuccess: "تم تسجيل الخروج بنجاح.",
+            alertLoginRequiredSave: "يرجى تسجيل الدخول لحفظ المشاريع.",
+            alertLoginRequiredView: "يرجى تسجيل الدخول لعرض المشاريع.",
+            alertLoginRequiredFeature: "يرجى إدخال اسم المستخدم أولاً للوصول إلى هذه الميزة.",
+            templateAttendance: "سجل حضور",
+            templateGrades: "كشف درجات",
+            templateWeeklyTasks: "مهام أسبوعية",
+            templateAppointments: "جدول مواعيد",
+            templateStudyPlan: "خطة دراسية",
+            templateAssignments: "قالب الواجبات",
+            templateFree: "📌 قالب حر",
+            freeTemplateContent: "✍️ يمكنك الآن كتابة أي شيء هنا، وإضافة صور أو عناصر...",
+            tableHeaderTitle: "العنوان {num}",
+            tableHeaderSubject: "المادة",
+            tableHeaderAssignment: "الواجب",
+            tableHeaderDueDate: "تاريخ التسليم",
+            tableHeaderStatus: "الحالة",
+            tableHeaderDelete: "حذف",
+            alertConfirmClearNotifications: "هل أنت متأكد من مسح جميع الإشعارات؟",
+            loadProjectBtn: "عرض",
+            deleteProjectBtn: "حذف",
+            appFooterNote: "تم إنشاء هذا الجدول باستخدام محرر الجداول الذكي."
+        },
+        en: {
+            appTitle: "Smart Table Editor",
+            welcomeMessage: "Welcome {username} 👋",
+            home: "Home",
+            projects: "Projects",
+            notifications: "Notifications",
+            settings: "Settings",
+            logout: "Logout",
+            introWelcomeTitle: "👋 Welcome",
+            introWelcomeText: "Welcome to <strong>Smart Table Editor</strong>, an app that helps you create professional tables easily.",
+            introUsageTitle: "📋 How to Use",
+            introUsageText: "Choose the number of rows and columns, then select the appropriate template and start editing.",
+            introTermsTitle: "📌 Terms of Use",
+            introTermsText: "This application is free for personal use and is not responsible for illegal use.",
+            nextBtn: "Next",
+            startNowBtn: "Start Now",
+            homePageTitle: "Getting Started",
+            homePageSubtitle: "Start designing your tables easily and professionally",
+            startNowSectionTitle: "🚀 Start Now",
+            createNewTableBtn: "➕ Create New Table",
+            tableSettingsTitle: "🛠️ Table Settings",
+            numColsPlaceholder: "Number of Columns",
+            numRowsPlaceholder: "Number of Rows",
+            chooseTemplateTitle: "Choose a Template",
+            changeFontLabel: "Change Font:",
+            savedProjectsTitle: "📁 Saved Projects",
+            addRow: "Add Row",
+            deleteRow: "Delete Row",
+            save: "Save",
+            downloadPDF: "PDF",
+            saveAsImage: "Image",
+            changeColors: "Colors",
+            preview: "Preview", // New translation key for preview button
+            print: "Print",
+            reload: "Reload",
+            enterUsernameTitle: "Enter Username",
+            usernamePlaceholder: "Username",
+            loginBtn: "Login",
+            settingsTitle: "⚙️ Settings",
+            languageSettingsTitle: "Change Language",
+            fontSizeSettingsTitle: "Font Size",
+            notificationsPageTitle: "🔔 Notifications",
+            clearNotificationsBtn: "Clear All",
+            noNotificationsMsg: "No notifications currently.",
+            alertEnterValidNumbers: "Please enter valid numbers for columns (1-10) and rows (1-20).",
+            alertProjectSaved: "Project saved successfully!",
+            alertNoProjects: "No saved projects.",
+            alertProjectNotFound: "Project not found",
+            alertConfirmDeleteProject: "Are you sure you want to delete this project?",
+            alertPleaseChooseRow: "Please select a row first",
+            alertPleaseEnterUsername: "Please enter a username.",
+            alertLoginSuccess: "Welcome, {username}!",
+            alertLogoutSuccess: "Logged out successfully.",
+            alertLoginRequiredSave: "Please log in to save projects.",
+            alertLoginRequiredView: "Please log in to view projects.",
+            alertLoginRequiredFeature: "Please enter a username first to access this feature.",
+            templateAttendance: "Attendance Log",
+            templateGrades: "Grades Sheet",
+            templateWeeklyTasks: "Weekly Tasks",
+            templateAppointments: "Appointment Schedule",
+            templateStudyPlan: "Study Plan",
+            templateAssignments: "Assignments Template",
+            templateFree: "📌 Free Template",
+            freeTemplateContent: "✍️ You can now write anything here, add images or elements...",
+            tableHeaderTitle: "Title {num}",
+            tableHeaderSubject: "Subject",
+            tableHeaderAssignment: "Assignment",
+            tableHeaderDueDate: "Due Date",
+            tableHeaderStatus: "Status",
+            tableHeaderDelete: "Delete",
+            alertConfirmClearNotifications: "Are you sure you want to clear all notifications?",
+            loadProjectBtn: "View",
+            deleteProjectBtn: "Delete",
+            appFooterNote: "This table was created using Smart Table Editor."
+        }
+    };
+
+    const templateKeys = [ // Renamed from templateNames to templateKeys for clarity with translation object
+      "templateAttendance",
+      "templateGrades",
+      "templateWeeklyTasks",
+      "templateAppointments",
+      "templateStudyPlan",
+      "templateAssignments",
+      "templateFree"
+    ];
+    const icons = {
+      "templateAttendance": "https://via.placeholder.com/60?text=📋", // Increased icon size for better look
+      "templateGrades": "https://via.placeholder.com/60?text=📊",
+      "templateWeeklyTasks": "https://via.placeholder.com/60?text=🗓",
+      "templateAppointments": "https://via.placeholder.com/60?text=⏰",
+      "templateStudyPlan": "https://via.placeholder.com/60?text=📘",
+      "templateAssignments": "https://via.placeholder.com/60?text=✔️",
+      "templateFree": "https://via.placeholder.com/60?text=✏️"
+    };
+    const projectIcons = [ // Icons for project cards (can be extended)
+        "folder", "description", "article", "receipt", "assignment", "book", "edit_note"
+    ];
+
+    // Define a palette of colors for the table
+    const colorPalettes = [
+        {
+            headerBg: "#BBDEFB", headerColor: "#1565C0",
+            evenRowBg: "#E3F2FD", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Blue
+        {
+            headerBg: "#C8E6C9", headerColor: "#2E7D32",
+            evenRowBg: "#E8F5E9", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Green
+        {
+            headerBg: "#FFCCBC", headerColor: "#D84315",
+            evenRowBg: "#FBE9E7", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Orange
+        {
+            headerBg: "#D1C4E9", headerColor: "#5E35B1",
+            evenRowBg: "#EDE7F6", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Purple
+        {
+            headerBg: "#B2EBF2", headerColor: "#00838F",
+            evenRowBg: "#E0F7FA", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Cyan
+        {
+            headerBg: "#FFECB3", headerColor: "#FF8F00",
+            evenRowBg: "#FFF8E1", oddRowBg: "#FFFFFF", textColor: "#333"
+        }, // Light Amber
+        {
+            headerBg: "#F8BBD0", headerColor: "#C2185B",
+            evenRowBg: "#FCE4EC", oddRowBg: "#FFFFFF", textColor: "#333"
+        }  // Light Pink
+    ];
+
+
+    // Intro JS functions
+    function nextSlide(num) {
+      document.querySelectorAll('.intro-slide').forEach(div => div.classList.add('hidden'));
+      document.getElementById(`slide${num}`).classList.remove('hidden');
+    }
+
+    function finishIntro() {
+      localStorage.setItem("seenIntro", "true");
+      showPage("home"); // Go to home after intro
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Apply saved language and font size
+      setLanguage(currentLanguage);
+      document.body.style.fontSize = `${currentFontSize}px`;
+
+      // Hide all major sections initially, except auth-container
+      document.getElementById("intro").classList.add("hidden");
+      document.getElementById("app-content").classList.add("hidden");
+      document.querySelector(".bottom-nav").classList.add("hidden");
+      document.getElementById("top-bar").classList.add("hidden"); // Hide top bar initially
+      document.getElementById("sidebar").classList.add("hidden");
+      document.getElementById("overlay").classList.add("hidden");
+
+      document.getElementById("auth-container").classList.remove("hidden"); // Ensure auth page is visible
+
+      // Check for saved username on load
+      currentUsername = localStorage.getItem("savedUsername");
+      if (currentUsername) {
+          isAuthenticated = true;
+          document.getElementById("auth-container").classList.add("hidden");
+          // Show app content and related UI elements
+          document.getElementById("app-content").classList.remove("hidden");
+          document.getElementById("top-bar").classList.remove("hidden"); // Show top bar
+          updateWelcomeMessage(); // Update sidebar welcome message
+
+          if (!localStorage.getItem("seenIntro")) {
+             document.getElementById("intro").classList.remove("hidden");
+          } else {
+             showPage("home");
+          }
+      }
+
+      const container = document.getElementById("template-list");
+      templateKeys.forEach((key) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        // Use translations[currentLanguage][key] for the text
+        card.innerHTML = `<img src="${icons[key]}" alt="${translations[currentLanguage][key]}">
+                          <div data-translate-key="${key}">${translations[currentLanguage][key]}</div>`;
+        card.onclick = () => generateTable(key);
+        container.appendChild(card);
+      });
+
+      // Event Listeners for main app buttons
+      document.getElementById("startBtn").addEventListener("click", () => {
+        console.log("تم الضغط على زر إنشاء جدول جديد");
+        showPage("step1");
+      });
+      document.getElementById("nextBtn").addEventListener("click", goToTemplates);
+      document.getElementById("addRowBtn").addEventListener("click", addRow);
+      document.getElementById("deleteRowBtn").addEventListener("click", deleteSelectedRow);
+      document.getElementById("saveProjectBtn").addEventListener("click", saveProject);
+      document.getElementById("downloadPDFBtn").addEventListener("click", downloadPDF);
+      document.getElementById("downloadImageBtn").addEventListener("click", downloadImage); 
+      // New: Event Listener for Colors button
+      document.getElementById("changeColorsBtn").addEventListener("click", changeTableColors);
+      // New: Event Listener for Preview button
+      document.getElementById("previewBtn").addEventListener("click", previewTable);
+      document.getElementById("printBtn").addEventListener("click", () => window.print());
+      document.getElementById("reloadBtn").addEventListener("click", () => location.reload()); // This will refresh and take back to login
+
+      // New: Event Listeners for Font Color
+      document.getElementById("changeFontColorBtn").addEventListener("click", () => {
+          document.getElementById("fontColorPicker").click(); // Trigger the color picker
+      });
+      document.getElementById("fontColorPicker").addEventListener("change", (event) => {
+          changeFontColor(event.target.value);
+      });
+      // Add event listener for selecting cells (th or td)
+      document.getElementById("table-container").addEventListener("click", (event) => {
+          const target = event.target;
+          if (target.tagName === 'TD' || target.tagName === 'TH') {
+              if (selectedCell) {
+                  selectedCell.style.outline = ''; // Remove outline from previously selected cell
+              }
+              selectedCell = target;
+              selectedCell.style.outline = '2px solid #2196F3'; // Add outline to new selected cell
+          } else if (selectedCell && !target.closest('#editable-table')) {
+              selectedCell.style.outline = ''; // Remove outline if clicking outside the table
+              selectedCell = null;
+          }
+      });
+
+
+      // Top Bar and Sidebar Buttons
+      document.getElementById("toggleSidebarBtn").addEventListener("click", toggleSidebar);
+      document.getElementById("closeSidebarBtn").addEventListener("click", toggleSidebar); // New close button for sidebar
+      document.getElementById("overlay").addEventListener("click", toggleSidebar); // Close sidebar on overlay click
+      document.getElementById("sidebarHomeBtn").addEventListener("click", () => { showPage("home"); toggleSidebar(); }); // Close sidebar after navigation
+      document.getElementById("sidebarProjectsBtn").addEventListener("click", () => { showProjects(); toggleSidebar(); }); // Close sidebar after navigation
+      document.getElementById("sidebarNotificationsBtn").addEventListener("click", () => { showNotifications(); toggleSidebar(); }); // Show notifications page
+      document.getElementById("sidebarSettingsBtn").addEventListener("click", () => { showPage("settings-page"); toggleSidebar(); }); // Open settings page
+      document.getElementById("sidebarLogoutBtn").addEventListener("click", logout); // Logout functionality from sidebar
+
+      // Authentication form handlers
+      document.getElementById("authSubmitBtn").addEventListener("click", handleAuthSubmit);
+
+      // Language and Font Size Buttons
+      document.getElementById('langArBtn').addEventListener('click', () => setLanguage('ar'));
+      document.getElementById('langEnBtn').addEventListener('click', () => setLanguage('en'));
+      document.querySelector('.settings-option button:nth-of-type(1)').addEventListener('click', decreaseFontSize);
+      document.querySelector('.settings-option button:nth-of-type(2)').addEventListener('click', increaseFontSize);
+
+      // Notifications page specific event listener
+      document.getElementById("clearNotificationsBtn").addEventListener("click", clearNotifications);
+    });
+
+    // Language and Font Size Functions
+    function setLanguage(lang) {
+        currentLanguage = lang;
+        localStorage.setItem('language', lang);
+
+        document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+        
+        // Update language buttons active state
+        document.getElementById('langArBtn').classList.toggle('active', lang === 'ar');
+        document.getElementById('langEnBtn').classList.toggle('active', lang === 'en');
+
+        // Update all elements with data-translate-key
+        document.querySelectorAll('[data-translate-key]').forEach(element => {
+            const key = element.getAttribute('data-translate-key');
+            let text = translations[lang][key];
+            if (key === 'welcomeMessage' && currentUsername) {
+                text = text.replace('{username}', currentUsername);
+            }
+            element.textContent = text;
+        });
+
+        // Update placeholders
+        document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-translate-placeholder');
+            element.placeholder = translations[lang][key];
+        });
+
+        // Update template card texts (re-render due to dynamic content)
+        const templateCards = document.querySelectorAll('#template-list .card div[data-translate-key]');
+        templateKeys.forEach((key, index) => {
+            if (templateCards[index]) {
+                templateCards[index].textContent = translations[lang][key];
+            }
+        });
+        
+        // Update any other dynamic text that doesn't have data-translate-key if needed (e.g., alerts)
+        // For simplicity, current alert messages use currentLanguage directly.
+    }
+
+    function increaseFontSize() {
+        currentFontSize += 1;
+        if (currentFontSize > 24) currentFontSize = 24; // Max font size
+        document.body.style.fontSize = `${currentFontSize}px`;
+        localStorage.setItem('fontSize', currentFontSize);
+    }
+
+    function decreaseFontSize() {
+        currentFontSize -= 1;
+        if (currentFontSize < 12) currentFontSize = 12; // Min font size
+        document.body.style.fontSize = `${currentFontSize}px`;
+        localStorage.setItem('fontSize', currentFontSize);
+    }
+
+    // Authentication Functions
+    function showAuthMessage(message, isSuccess = false) {
+        const msgElement = document.getElementById("auth-message");
+        msgElement.textContent = message;
+        msgElement.className = isSuccess ? "success" : ""; // Remove or add 'success' class
+        setTimeout(() => msgElement.textContent = "", 3000); // Clear message after 3 seconds
+    }
+
+    function updateWelcomeMessage() {
+        const welcomeMsgElement = document.getElementById("sidebar-welcome-msg");
+        if (currentUsername) {
+            welcomeMsgElement.textContent = translations[currentLanguage].welcomeMessage.replace('{username}', currentUsername);
+        } else {
+            welcomeMsgElement.textContent = translations[currentLanguage].welcomeMessage.replace('{username}', ''); // Or just "مرحبًا بك"
+        }
+    }
+
+    function handleAuthSubmit() {
+        const username = document.getElementById("usernameInput").value.trim();
+
+        if (!username) {
+            showAuthMessage(translations[currentLanguage].alertPleaseEnterUsername);
+            return;
+        }
+
+        // Save username to localStorage
+        localStorage.setItem("savedUsername", username);
+        currentUsername = username;
+        isAuthenticated = true;
+
+        showAuthMessage(translations[currentLanguage].alertLoginSuccess.replace('{username}', username), true);
+        setTimeout(() => {
+            document.getElementById("auth-container").classList.add("hidden");
+            document.getElementById("app-content").classList.remove("hidden");
+            document.getElementById("top-bar").classList.remove("hidden"); // Show top bar
+            updateWelcomeMessage(); // Update sidebar welcome message
+
+            if (!localStorage.getItem("seenIntro")) {
+               document.getElementById("intro").classList.remove("hidden");
+            } else {
+               showPage("home");
+            }
+        }, 1000); // Small delay for message visibility
+    }
+
+    function logout() {
+        isAuthenticated = false;
+        currentUsername = null;
+        localStorage.removeItem("savedUsername"); // Clear saved username
+        showAuthMessage(translations[currentLanguage].alertLogoutSuccess, true);
+        setTimeout(() => { // Delay before hiding elements to allow message to show
+            document.getElementById("app-content").classList.add("hidden");
+            document.querySelector(".bottom-nav").classList.add("hidden");
+            document.getElementById("top-bar").classList.add("hidden"); // Hide top bar on logout
+            document.getElementById("sidebar").classList.add("hidden"); // Ensure sidebar is hidden
+            document.getElementById("overlay").classList.add("hidden"); // Ensure overlay is hidden
+            document.getElementById("auth-container").classList.remove("hidden");
+            // Clear input after logout
+            document.getElementById("usernameInput").value = '';
+            updateWelcomeMessage(); // Reset sidebar welcome
+        }, 500); // Give time for message
+    }
+
+    // Toggle Sidebar Function
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
+
+    // Modified showPage function to enforce authentication and manage UI elements
+    function showPage(id) {
+        if (!isAuthenticated && id !== "auth-container" && id !== "intro") {
+            document.getElementById("auth-container").classList.remove("hidden");
+            document.getElementById("app-content").classList.add("hidden");
+            document.querySelector(".bottom-nav").classList.add("hidden");
+            document.getElementById("top-bar").classList.add("hidden");
+            document.getElementById("sidebar").classList.add("hidden");
+            document.getElementById("overlay").classList.add("hidden");
+            showAuthMessage(translations[currentLanguage].alertLoginRequiredFeature);
+            return;
+        }
+
+        // Hide all major sections
+        document.getElementById("home").classList.add("hidden");
+        document.getElementById("step1").classList.add("hidden");
+        document.getElementById("step2").classList.add("hidden");
+        document.getElementById("result").classList.add("hidden");
+        document.getElementById("projects-page").classList.add("hidden");
+        document.getElementById("auth-container").classList.add("hidden");
+        document.getElementById("intro").classList.add("hidden");
+        document.getElementById("settings-page").classList.add("hidden"); // Hide settings page
+        document.getElementById("notifications-page").classList.add("hidden"); // Hide notifications page
+
+        // Show the requested page
+        document.getElementById(id).classList.remove("hidden");
+
+        // Manage Top Bar and Sidebar visibility (always shown if authenticated and not on intro/auth)
+        if (isAuthenticated && id !== 'auth-container' && id !== 'intro') {
+            document.getElementById("top-bar").classList.remove("hidden");
+            document.getElementById("sidebar").classList.remove("hidden"); // Sidebar is part of app, just hidden by transform
+            // The sidebar itself will be hidden/shown via toggleSidebar()
+        } else {
+            document.getElementById("top-bar").classList.add("hidden");
+            document.getElementById("sidebar").classList.add("hidden"); // Fully hide sidebar element
+            document.getElementById("overlay").classList.add("hidden"); // Ensure overlay is hidden
+            document.getElementById("sidebar").classList.remove("active"); // Ensure it's not active if hidden
+            document.getElementById("overlay").classList.remove("active");
+        }
+
+
+        // Manage bottom navigation visibility based on current page
+        const bottomNav = document.querySelector(".bottom-nav");
+        const navButtons = document.querySelectorAll('.bottom-nav button');
+
+        if (id === 'result') { // Show all action buttons only on result page
+            bottomNav.classList.remove('hidden');
+            // Show all buttons (ensure display:flex for icons)
+            navButtons.forEach(button => button.style.display = 'flex');
+        } else if (id === 'home' || id === 'step1' || id === 'step2' || id === 'projects-page' || id === 'settings-page' || id === 'notifications-page') { // Hide action buttons on other main pages
+            bottomNav.classList.add('hidden'); // Hide the entire bottom nav bar
+            navButtons.forEach(button => button.style.display = 'none');
+        } else { // For intro, auth etc.
+            bottomNav.classList.add('hidden');
+        }
+
+        // Special handling for 'قالب حر' (Free Template) - hide add/delete row buttons
+        if (id === 'result' && !tableRef) { // if tableRef is null, it's a free template
+            document.getElementById('addRowBtn').style.display = 'none';
+            document.getElementById('deleteRowBtn').style.display = 'none';
+        }
+    }
+
+    function goToTemplates() {
+      userCols = parseInt(document.getElementById("cols").value);
+      userRows = parseInt(document.getElementById("rows").value);
+
+      // تحقق من أن القيم ليست فارغة قبل التحقق من الصلاحية
+      if (isNaN(userCols) || isNaN(userRows) || userCols <= 0 || userRows <= 0 || userCols > 10 || userRows > 20) {
+        alert(translations[currentLanguage].alertEnterValidNumbers);
+        return; // توقف عن التنفيذ إذا كانت المدخلات غير صالحة
+      }
+
+      showPage("step2");
+    }
+
+    function generateTable(templateKey) {
+      // Ensure add/delete row buttons are visible by default when a table template is chosen
+      document.getElementById("addRowBtn").style.display = 'flex';
+      document.getElementById("deleteRowBtn").style.display = 'flex';
+      document.querySelector(".bottom-nav").classList.remove("hidden"); // Ensure bottom nav is visible on result page
+
+      if (templateKey === "templateFree") {
+        document.getElementById("table-container").innerHTML = `<div contenteditable="true" style="min-height:300px;background:white;padding:20px;border-radius:12px; font-size: 1.2em;" data-translate-key="freeTemplateContent">${translations[currentLanguage].freeTemplateContent}</div><div id="app-footer-note" class="app-footer-note no-print" data-translate-key="appFooterNote">${translations[currentLanguage].appFooterNote}</div>`;
+        tableRef = null; // Indicate it's not a standard table
+        document.getElementById("addRowBtn").style.display = 'none';
+        document.getElementById("deleteRowBtn").style.display = 'none';
+      } else {
+          let html = "";
+          let tableClasses = "";
+
+          if (templateKey === "templateAssignments") {
+              tableClasses = "tasks-table";
+              html += `<table id="editable-table" class="${tableClasses}"><thead><tr>`;
+              html += `<th contenteditable="true" data-translate-key="tableHeaderSubject">${translations[currentLanguage].tableHeaderSubject}</th>`;
+              html += `<th contenteditable="true" data-translate-key="tableHeaderAssignment">${translations[currentLanguage].tableHeaderAssignment}</th>`;
+              html += `<th contenteditable="true" data-translate-key="tableHeaderDueDate">${translations[currentLanguage].tableHeaderDueDate}</th>`;
+              html += `<th contenteditable="true" data-translate-key="tableHeaderStatus">${translations[currentLanguage].tableHeaderStatus}</th>`;
+              html += `<th class="no-print" data-translate-key="tableHeaderDelete">${translations[currentLanguage].tableHeaderDelete}</th></tr></thead><tbody>`;
+
+              const rowsToGenerate = userRows; // Use userRows from input
+              for (let r = 0; r < rowsToGenerate; r++) {
+                html += `<tr onclick="selectRow(this)">`;
+                html += `<td contenteditable="true"></td>`;
+                html += `<td contenteditable="true"></td>`;
+                html += `<td contenteditable="true"></td>`;
+                html += `<td><input type="checkbox" class="no-print"></td>`;
+                html += `<td class="no-print"><button class="delete-btn" onclick="deleteRow(this)">🗑</button></td></tr>`;
+              }
+              html += `</tbody></table>`;
+              userCols = 4; // Fixed for this template
+          } else {
+              html += `<table id="editable-table"><thead><tr>`;
+              for (let c = 0; c < userCols; c++) html += `<th contenteditable="true">${translations[currentLanguage].tableHeaderTitle.replace('{num}', c + 1)}</th>`; // Changed title placeholder for generic table
+              html += `<th class="no-print" data-translate-key="tableHeaderDelete">${translations[currentLanguage].tableHeaderDelete}</th></tr></thead><tbody>`;
+              const rowsToGenerate = userRows; // Use userRows from input
+              for (let r = 0; r < rowsToGenerate; r++) {
+                html += `<tr onclick="selectRow(this)">`;
+                for (let c = 0; c < userCols; c++) html += `<td contenteditable="true"></td>`;
+                html += `<td class="no-print"><button class="delete-btn" onclick="deleteRow(this)">🗑</button></td></tr>`;
+              }
+              html += `</tbody></table>`;
+          }
+          document.getElementById("table-container").innerHTML = html + `<div id="app-footer-note" class="app-footer-note no-print" data-translate-key="appFooterNote">${translations[currentLanguage].appFooterNote}</div>`;
+          tableRef = document.querySelector("#editable-table tbody");
+      }
+
+      selectedRow = null;
+      selectedCell = null; // Reset selected cell on new table generation
+      showPage("result");
+    }
+
+    function addRow() {
+      if (!tableRef) return; // Cannot add row to free template
+      const row = tableRef.insertRow();
+      row.onclick = () => selectRow(row);
+
+      if (document.getElementById("editable-table").classList.contains("tasks-table")) {
+          row.insertCell().contentEditable = "true";
+          row.insertCell().contentEditable = "true";
+          row.insertCell().contentEditable = "true";
+          const statusCell = row.insertCell();
+          statusCell.innerHTML = `<input type="checkbox" class="no-print">`;
+          userRows++;
+      }
+      else { // Generic table
+          for (let c = 0; c < userCols; c++) {
+            const cell = row.insertCell();
+            cell.contentEditable = "true";
+          }
+          userRows++;
+      }
+
+      const del = row.insertCell();
+      del.className = "no-print";
+      del.innerHTML = `<button class="delete-btn" onclick="deleteRow(this)">🗑</button>`;
+    }
+
+    function deleteRow(btn) {
+      if (!tableRef) return; // Cannot delete row from free template
+      btn.closest("tr").remove();
+      if (selectedRow && !document.body.contains(selectedRow)) selectedRow = null;
+      if (tableRef) {
+        userRows--;
+        if (userRows < 0) userRows = 0;
+      }
+    }
+
+    function selectRow(row) {
+      if (selectedRow) selectedRow.style.background = "";
+      selectedRow = row;
+      row.style.background = "#e3f2fd";
+    }
+
+    function deleteSelectedRow() {
+      if (!tableRef) return; // Cannot delete row from free template
+      if (selectedRow) {
+        selectedRow.remove();
+        selectedRow = null;
+        if (tableRef) {
+          userRows--;
+          if (userRows < 0) userRows = 0;
+        }
+      } else {
+        alert(translations[currentLanguage].alertPleaseChooseRow);
+      }
+    }
+
+    function changeFont(font) {
+      document.getElementById("table-container").style.fontFamily = font;
+    }
+
+    // New function: Change Table Colors
+    function changeTableColors() {
+        const table = document.getElementById("editable-table");
+        if (!table) {
+            // If it's a free template (div), change its background color
+            const freeTemplateDiv = document.querySelector("#table-container > div[contenteditable='true']");
+            if (freeTemplateDiv) {
+                const randomColorIndex = Math.floor(Math.random() * colorPalettes.length);
+                const palette = colorPalettes[randomColorIndex];
+                freeTemplateDiv.style.backgroundColor = palette.evenRowBg; // Use one of the light colors
+                freeTemplateDiv.style.color = palette.textColor;
+            }
+            return; // Exit if no table or free template div
+        }
+
+        const headers = table.querySelectorAll("th");
+        const rows = table.querySelectorAll("tbody tr");
+
+        // Choose a random color palette
+        const randomPaletteIndex = Math.floor(Math.random() * colorPalettes.length);
+        const selectedPalette = colorPalettes[randomPaletteIndex];
+
+        // Apply header styles
+        headers.forEach(th => {
+            th.style.backgroundColor = selectedPalette.headerBg;
+            th.style.color = selectedPalette.headerColor;
+        });
+
+        // Apply row styles
+        rows.forEach((row, index) => {
+            if (index % 2 === 0) { // Even rows
+                row.style.backgroundColor = selectedPalette.evenRowBg;
+            } else { // Odd rows
+                row.style.backgroundColor = selectedPalette.oddRowBg;
+            }
+            row.style.color = selectedPalette.textColor; // Apply text color to all cells
+            // Ensure cells within the row also inherit or are set
+            row.querySelectorAll('td').forEach(td => {
+                td.style.color = selectedPalette.textColor;
+            });
+        });
+
+        // Remove specific template classes if they interfere with new colors
+        table.classList.remove("tasks-table"); // Example for assignments template
+    }
+
+    // New function: Change Font Color
+    function changeFontColor(color) {
+        if (selectedCell) {
+            selectedCell.style.color = color;
+        } else {
+            // If no specific cell is selected, change color for all contenteditable cells
+            const editableElements = document.querySelectorAll('#editable-table th, #editable-table td, #table-container > div[contenteditable="true"]');
+            editableElements.forEach(el => {
+                el.style.color = color;
+            });
+        }
+    }
+
+
+    function downloadPDF() {
+      const element = document.getElementById("table-container").cloneNode(true);
+      // Remove elements with 'no-print' class from the cloned element
+      element.querySelectorAll(".no-print").forEach((el) => el.remove());
+      
+      // Ensure contenteditable attributes are removed to prevent visual cues in PDF
+      element.querySelectorAll('[contenteditable="true"]').forEach(el => el.removeAttribute('contenteditable'));
+      element.querySelectorAll('[style*="outline"]').forEach(el => el.style.outline = ''); // Remove cell selection outline
+
+      // If the footer note exists and was removed by .no-print, re-add it explicitly for the PDF
+      const footerNoteOriginal = document.getElementById("app-footer-note");
+      if (footerNoteOriginal) {
+          const footerNoteClone = footerNoteOriginal.cloneNode(true);
+          footerNoteClone.classList.remove('no-print'); // Make sure it's visible in PDF
+          footerNoteClone.style.display = 'block'; // Ensure it's not hidden by any other rule
+          footerNoteClone.style.fontSize = '10px'; // Smaller font for consistency
+          footerNoteClone.style.marginTop = '20px'; // Add some space
+          element.appendChild(footerNoteClone);
+      }
+
+      html2pdf().from(element).set({
+        margin: 0.5,
+        filename: "جدول_ذكي.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+      }).save();
+    }
+
+    function downloadImage() {
+        const element = document.getElementById("table-container").cloneNode(true);
+        // Remove elements that shouldn't be in the image (e.g., delete buttons, checkboxes)
+        element.querySelectorAll(".no-print").forEach((el) => el.remove());
+        // Also ensure contenteditable attributes are removed to prevent visual cues
+        element.querySelectorAll('[contenteditable="true"]').forEach(el => el.removeAttribute('contenteditable'));
+        element.querySelectorAll('[style*="outline"]').forEach(el => el.style.outline = ''); // Remove cell selection outline
+
+        // Handle the footer note for image export
+        const footerNoteOriginal = document.getElementById("app-footer-note");
+        let footerNoteClone = null;
+        if (footerNoteOriginal) {
+            footerNoteClone = footerNoteOriginal.cloneNode(true);
+            footerNoteClone.classList.remove('no-print'); // Make sure it's visible in the image
+            footerNoteClone.style.display = 'block'; // Ensure it's not hidden by any other rule
+            footerNoteClone.style.fontSize = '10px'; // Smaller font for consistency
+            footerNoteClone.style.marginTop = '20px'; // Add some space
+        }
+
+        // Create a temporary container to render the image to avoid affecting the live DOM
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px'; // Move off-screen
+        tempContainer.style.top = '-9999px';
+        tempContainer.style.width = element.offsetWidth + 'px'; // Maintain original width
+        tempContainer.style.height = element.offsetHeight + 'px'; // Maintain original height
+        
+        // Append the main element and then the footer note
+        tempContainer.appendChild(element);
+        if (footerNoteClone) {
+            tempContainer.appendChild(footerNoteClone);
+        }
+        document.body.appendChild(tempContainer);
+
+
+        html2canvas(tempContainer, {
+            scale: 2, // Increase scale for higher resolution image
+            logging: false, // Disable console logging for cleaner output
+            useCORS: true, // Important if your table includes images from other domains
+            backgroundColor: '#ffffff', // Set a background color for the canvas
+        }).then(canvas => {
+            // Remove the temporary container
+            document.body.removeChild(tempContainer);
+
+            const link = document.createElement('a');
+            link.download = 'جدول_ذكي.png'; // File name
+            link.href = canvas.toDataURL('image/png'); // Get image data as PNG
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }).catch(error => {
+            console.error("Error generating image:", error);
+            alert("حدث خطأ أثناء حفظ الصورة. يرجى المحاولة مرة أخرى.");
+        });
+    }
+
+    // New function: Preview Table
+    function previewTable() {
+        const tableContainer = document.getElementById("table-container");
+        const clonedContent = tableContainer.cloneNode(true);
+
+        // Remove all 'no-print' elements (like delete buttons, checkboxes)
+        clonedContent.querySelectorAll(".no-print").forEach(el => el.remove());
+        // Remove contenteditable attributes
+        clonedContent.querySelectorAll("[contenteditable]").forEach(el => el.removeAttribute("contenteditable"));
+        // Remove any cell selection outlines
+        clonedContent.querySelectorAll('[style*="outline"]').forEach(el => el.style.outline = '');
+
+        const newWindow = window.open("", "_blank");
+        newWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="${currentLanguage}" dir="${currentLanguage === 'ar' ? 'rtl' : 'ltr'}">
+            <head>
+                <meta charset="UTF-8">
+                <title>${translations[currentLanguage].preview || 'معاينة الجدول'}</title>
+                <style>
+                    body {
+                        font-family: ${document.body.style.fontFamily || "'Cairo', sans-serif"};
+                        margin: 20px;
+                        direction: ${currentLanguage === 'ar' ? 'rtl' : 'ltr'};
+                    }
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 0 auto;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+                        background-color: white;
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+                    th, td {
+                        border: 1px solid #ccc;
+                        padding: 10px;
+                        text-align: center;
+                        vertical-align: middle;
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+                    th {
+                        background-color: #1976d2; /* Default header background */
+                        color: white; /* Default header text color */
+                    }
+                    /* Specific styles for "قالب الواجبات" if it was applied */
+                    .tasks-table th {
+                        background-color: #E0F2F7;
+                        color: #2196F3;
+                        font-family: 'Tajawal', sans-serif;
+                    }
+                    .tasks-table tr:nth-child(even) {
+                        background-color: #F8FCFF;
+                    }
+                    .tasks-table tr:nth-child(odd) {
+                        background-color: #FFFFFF;
+                    }
+                    /* Ensure colors applied by changeTableColors are also respected */
+                    table th[style*="background-color"],
+                    table td[style*="background-color"],
+                    table tr[style*="background-color"] {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+                    table th[style*="color"],
+                    table td[style*="color"] {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+
+                    /* Style for free template div if applicable */
+                    .free-template-div {
+                        min-height: 300px;
+                        background: white;
+                        padding: 20px;
+                        border-radius: 12px;
+                        font-size: 1.2em;
+                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+                    }
+                     .app-footer-note {
+                        display: block; /* Always show in preview */
+                        font-size: 10px;
+                        margin-top: 30px;
+                        text-align: center;
+                        color: #888;
+                    }
+                </style>
+            </head>
+            <body>
+                <div style="width: 90%; max-width: 800px; margin: 20px auto;">
+                    ${clonedContent.innerHTML}
+                </div>
+            </body>
+            </html>
+        `);
+        newWindow.document.close();
+    }
+
+
+    function saveProject() {
+      if (!isAuthenticated) {
+          alert(translations[currentLanguage].alertLoginRequiredSave);
+          showPage("auth-container");
+          return;
+      }
+      const name = prompt(translations[currentLanguage].alertProjectNamePrompt || "أدخل اسم المشروع:");
+      if (!name) return;
+      const tableHTML = document.getElementById("table-container").innerHTML;
+      const projects = JSON.parse(localStorage.getItem(`projects_${currentUsername}`) || "[]"); // Save specific to user
+      projects.push({ name, content: tableHTML, timestamp: new Date().toLocaleString() }); // Add timestamp
+      localStorage.setItem(`projects_${currentUsername}`, JSON.stringify(projects));
+      alert(translations[currentLanguage].alertProjectSaved);
+    }
+
+    function showProjects() {
+      if (!isAuthenticated) {
+          alert(translations[currentLanguage].alertLoginRequiredView);
+          showPage("auth-container");
+          return;
+      }
+      showPage("projects-page");
+      const list = document.getElementById("projects-list");
+      list.innerHTML = ""; // Clear existing projects
+
+      // Add the projects-grid class to the projects-list container
+      list.classList.add('projects-grid');
+
+      const projects = JSON.parse(localStorage.getItem(`projects_${currentUsername}`) || "[]"); // Load specific to user
+      if (projects.length === 0) {
+        list.innerHTML = `<p style="grid-column: 1 / -1; font-size: 1.2em; color: #555;">${translations[currentLanguage].alertNoProjects}</p>`;
+        return;
+      }
+
+      projects.forEach((p, i) => {
+        const div = document.createElement("div");
+        div.className = "project-card";
+
+        // Random icon for each project (can be made more specific if needed)
+        const randomIcon = projectIcons[Math.floor(Math.random() * projectIcons.length)];
+
+        div.innerHTML = `
+            <span class="material-icons">${randomIcon}</span>
+            <strong contenteditable="true" onblur="renameProject(${i}, this.innerText)">${p.name}</strong>
+            <small>${p.timestamp || ''}</small> 
+            <div class="project-actions">
+                <button onclick="loadProject(${i})">📂 ${translations[currentLanguage].loadProjectBtn || 'عرض'}</button>
+                <button class="delete-btn" onclick="deleteProject(${i})">🗑 ${translations[currentLanguage].deleteProjectBtn || 'حذف'}</button>
+            </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function loadProject(i) {
+      const projects = JSON.parse(localStorage.getItem(`projects_${currentUsername}`) || "[]"); // Load specific to user
+      if (!projects[i]) return alert(translations[currentLanguage].alertProjectNotFound);
+      
+      // Load the content
+      document.getElementById("table-container").innerHTML = projects[i].content;
+      
+      // Determine if it's a structured table or free template
+      tableRef = document.querySelector("#editable-table tbody");
+
+      // Adjust visibility of add/delete row buttons based on loaded content
+      if (tableRef) { // It's a structured table
+          document.getElementById("addRowBtn").style.display = 'flex';
+          document.getElementById("deleteRowBtn").style.display = 'flex';
+      } else { // Likely a free template if no table tbody
+          document.getElementById("addRowBtn").style.display = 'none';
+          document.getElementById('deleteRowBtn').style.display = 'none';
+      }
+
+      selectedRow = null;
+      selectedCell = null; // Reset selected cell on project load
+      showPage("result");
+    }
+
+    function renameProject(i, newName) {
+      const projects = JSON.parse(localStorage.getItem(`projects_${currentUsername}`) || "[]"); // Specific to user
+      if (!projects[i]) return;
+      // Use original name if newName is empty or just whitespace
+      const finalNewName = newName.trim() || projects[i].name; 
+      projects[i].name = finalNewName;
+      localStorage.setItem(`projects_${currentUsername}`, JSON.stringify(projects)); // Specific to user
+      // Refresh the projects list to show updated name immediately
+      showProjects(); 
+    }
+
+    function deleteProject(i) {
+      if (confirm(translations[currentLanguage].alertConfirmDeleteProject)) {
+        const projects = JSON.parse(localStorage.getItem(`projects_${currentUsername}`) || "[]"); // Specific to user
+        const projectName = projects[i].name;
+        projects.splice(i, 1);
+        localStorage.setItem(`projects_${currentUsername}`, JSON.stringify(projects)); // Specific to user
+        showProjects();
+      }
+    }
+
+    // Notifications Functions (kept for completeness if needed elsewhere, but not linked to UI)
+    function showNotifications() {
+        showPage("notifications-page");
+        const listElement = document.getElementById("notifications-list");
+        listElement.innerHTML = ""; // Clear existing notifications
+
+        // Load notifications from the shared key
+        let sharedNotifications = JSON.parse(localStorage.getItem('shared_notifications') || "[]");
+        
+        if (sharedNotifications.length === 0) {
+            listElement.innerHTML = `<p>${translations[currentLanguage].noNotificationsMsg}</p>`;
+            return;
+        }
+
+        sharedNotifications.forEach((notif, index) => {
+            const div = document.createElement("div");
+            div.className = `notification-item ${notif.read ? '' : 'unread'}`;
+            // Added Material Icon and structured content
+            div.innerHTML = `
+                <span class="material-icons">${notif.read ? 'notifications_none' : 'notifications'}</span>
+                <div class="notification-item-content">
+                    ${notif.message}
+                    <span class="notification-item-timestamp">${notif.timestamp}</span>
+                </div>
+            `;
+            listElement.appendChild(div);
+            // Mark as read when displayed
+            sharedNotifications[index].read = true;
+        });
+        // Save the updated read state back to localStorage
+        localStorage.setItem('shared_notifications', JSON.stringify(sharedNotifications));
+    }
+
+    function clearNotifications() {
+        if (confirm(translations[currentLanguage].alertConfirmClearNotifications)) {
+            localStorage.removeItem('shared_notifications'); // Clear shared notifications
+            showNotifications(); // Refresh the list (will show "no notifications")
+        }
+    }
+
+    // Function to add a new admin notification (from previous context)
+    function addAdminNotification(message) {
+        let sharedNotifications = JSON.parse(localStorage.getItem('shared_notifications') || "[]");
+        const newNotification = {
+            message: message,
+            timestamp: new Date().toLocaleString(),
+            read: false // Mark as unread initially
+        };
+        sharedNotifications.unshift(newNotification); // Add to the beginning
+        localStorage.setItem('shared_notifications', JSON.stringify(sharedNotifications));
+    }
+
+    // Example of how to manually add an admin notification (you can call this from console for testing)
+    // For example: addAdminNotification("هذا إشعار تجريبي جديد!");
+    // Or you can integrate it into your backend/admin panel if you build one later.
+  </script>
+</body>
+</html>
